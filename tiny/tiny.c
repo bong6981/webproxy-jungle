@@ -11,9 +11,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char *method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -56,7 +56,8 @@ void doit(int fd) {
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
-  if (strcasecmp(method, "GET")) { /* method가 GET이 아니면 */
+  
+  if(strcasecmp(method, "GET") && strcasecmp(method, "HEAD")) { /* method가 GET, HEAD 아니면 */
     clienterror(fd, method, 501, "Not implemented",
                 "Tiny does not implement this method");
     return;
@@ -77,7 +78,7 @@ void doit(int fd) {
                   "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size); /* fd에 응답 작성되어진다 */
+    serve_static(fd, filename, sbuf.st_size, method); /* fd에 응답 작성되어진다 */
   } 
   else { /* Serve dynamic content */
     if (!S_ISREG(sbuf.st_mode) || !(S_IXUSR & sbuf.st_mode)) { /* 일반 파일 여부 검사 || 접근 권한 값이 has execute permission */
@@ -85,7 +86,7 @@ void doit(int fd) {
                   "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs); /* 자식 프로세스 fork하고 그 후에 CGI 프로그램을 자식 컨텍스트에서 실행, 동적 컨텐츠 제공, 표준출력을 -> fd */
+    serve_dynamic(fd, filename, cgiargs, method); /* 자식 프로세스 fork하고 그 후에 CGI 프로그램을 자식 컨텍스트에서 실행, 동적 컨텐츠 제공, 표준출력을 -> fd */
   }
 }
 
@@ -144,7 +145,7 @@ int parse_uri(char *uri, char *filename, char* cgiargs) {
   }
 }
 
-void serve_static(int fd, char *filename, int filesize) {
+void serve_static(int fd, char *filename, int filesize, char *method) {
 
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXLINE];
@@ -159,6 +160,10 @@ void serve_static(int fd, char *filename, int filesize) {
   Rio_writen(fd, buf, strlen(buf));
   printf("Response headers:\n");
   printf("%s", buf);
+
+  /* HEAD 메소드일 때는 헤드까지만 출력한다 */
+  if (!strcasecmp(method, "HEAD"))
+    return;
 
   /* Send response body to client */
   srcfd = Open(filename, O_RDONLY, 0); /* 파일을 성공 적으로 열었다면 파일 지정 번호 return */
@@ -175,7 +180,6 @@ void serve_static(int fd, char *filename, int filesize) {
  * get_filetype - Derive file type from filename
 */
 void get_filetype(char *filename, char *filetype) {
-  printf("%s/n", filename);
   if (strstr(filename, ".html")) 
     strcpy(filetype, "text/html");
   else if (strstr(filename, ".gif"))
@@ -190,7 +194,7 @@ void get_filetype(char *filename, char *filetype) {
     strcpy(filetype, "text/plain");
 }
 
-void serve_dynamic(int fd, char *filename, char *cgiargs) {
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method) {
 
   char buf[MAXLINE], *emptylist[] = { NULL };
 
@@ -203,6 +207,7 @@ void serve_dynamic(int fd, char *filename, char *cgiargs) {
   if (Fork() == 0) { /* Child */
     /* Real server sould set all CGI vars here 여기서는 간단하게 하기 위해 QUERY_STRING 만 가져옴 */
     setenv("QUERY_STRING", cgiargs, 1); /* 1은 overwrite 할지 말지. 0은 overwirte X */
+    setenv("REQUEST_METHOD", method, 1);
     Dup2(fd, STDOUT_FILENO); /* Redirect stdout to clinet */
     Execve(filename, emptylist, environ); /* CGI프로그램 로드, 실행, emptylist는 argv가 들어가는 부분, environ은 환경변수 들어가는 부분 */
   }

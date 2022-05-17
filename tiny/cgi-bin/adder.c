@@ -5,10 +5,12 @@
 #include "csapp.h"
 
 int main(void) {
-  char *buf, *p, *arg1p, *arg2p;
+  char *buf, *p, *arg1p, *arg2p, *method;
   char arg1_tmp[MAXLINE], arg2_tmp[MAXLINE], arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
   int n1=0, n2=0;
 
+  /* 메소드를  환경변수에서 받아온다 */
+  method = getenv("REQUEST_METHOD");  
   /* Make the response body */
   if ((buf = getenv("QUERY_STRING")) != NULL) {
     p = strchr(buf, '&');
@@ -37,7 +39,9 @@ int main(void) {
   printf("Connection: close\r\n");
   printf("Connection-length: %d\r\n", (int)strlen(content));
   printf("Content-type: text/html\r\n\r\n");
-  printf("%s", content);
+
+  if (strcasecmp(method, "HEAD"))
+    printf("%s", content);  
   fflush(stdout);
 
   exit(0);
