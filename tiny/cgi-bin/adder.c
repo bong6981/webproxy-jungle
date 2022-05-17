@@ -5,17 +5,23 @@
 #include "csapp.h"
 
 int main(void) {
-  char *buf, *p;
-  char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
+  char *buf, *p, *arg1p, *arg2p;
+  char arg1_tmp[MAXLINE], arg2_tmp[MAXLINE], arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
   int n1=0, n2=0;
 
   /* Make the response body */
   if ((buf = getenv("QUERY_STRING")) != NULL) {
     p = strchr(buf, '&');
     *p = '\0';
-    strcpy(arg1, buf);
-    strcpy(arg2, p+1);
+    strcpy(arg1_tmp, buf);
+    strcpy(arg2_tmp, p+1);
+
+    arg1p = strchr(arg1_tmp, '=');
+    strcpy(arg1, arg1p+1);
     n1 = atoi(arg1);
+
+    arg2p = strchr(arg2_tmp, '=');
+    strcpy(arg2, arg2p+1);
     n2 = atoi(arg2);
   }
   
