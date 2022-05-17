@@ -162,10 +162,13 @@ void serve_static(int fd, char *filename, int filesize) {
 
   /* Send response body to client */
   srcfd = Open(filename, O_RDONLY, 0); /* 파일을 성공 적으로 열었다면 파일 지정 번호 return */
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); /* 파일 사이즈만큼 가상 메모리 영역으로 매핑, PROT_READ : 읽을 수 있다(접근권한설정), 0 매핑한 객체의 유형 설명 비트*/
+  // srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); ./* 11-9 풀기 이전의 코드로 주석 처리, 파일 사이즈만큼 가상 메모리 영역으로 매핑, PROT_READ : 읽을 수 있다(접근권한설정), 0 매핑한 객체의 유형 설명 비트*/
+  srcp = (char *)Malloc(filesize);
+  Rio_readn(srcfd, srcp, filesize);
   Close(srcfd);  /* 새롭게 메모리에 매핑했으니 기존에 연 파일은 닫아준다 */
   Rio_writen(fd, srcp, filesize); /* 매핑 한 것을 fd에 write */
-  Munmap(srcp, filesize); /* fd에 적었으니 srcp 메모리 해제 */ 
+  free(srcp);
+  // Munmap(srcp, filesize); /* 11-9 풀기 이전의 코드로 주석처리, fd에 적었으니 srcp 메모리 해제 */ 
 }
 
 /*
