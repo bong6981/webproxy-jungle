@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include "csapp.h"
 
-/* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
-#define MAX_OBJECT_SIZE 102400
-
 static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
     "Firefox/10.0.3\r\n";
@@ -21,8 +17,6 @@ static const char *user_agent_key = "User-Agent";
 
 void doit(int connfd);
 
-void *thread(int connfd); /*concurrent porxy에서 추가된 부분*/
-
 void parse_uri(char *uri, char *hostname, char *path, int *port, char *query);
 void build_req_msg(char *req_msg, char *hostname, char *path, int port, rio_t *client_rio);
 int connect_endServer(char *hostname, int port);
@@ -35,7 +29,6 @@ int main(int argc, char **argv)
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-  pthread_t tid; /* pthread의 자료형 */
 
   if (argc != 2)
   {
@@ -52,21 +45,10 @@ int main(int argc, char **argv)
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0); 
     printf("Accepted connection from (%s %s).\n", hostname, port);
 
-    /* 호출된 함수에서 쓰레드를 생성한다 */
-    /* thread 식별자, 쓰레드 특성 지정 사용시 부여하는 값(기본NULL), 분기시켜서 실행할 함수, 실행할 함수에 매개변수로 넘겨지는 값*/
-    /* doit(connfd), Close(connfd); 를 thread 함수 내에서 (다른 쓰레드에서) 실행할 것 */
-    /* connection 맺어질 떄마다 새로운 쓰레드에서 작업한다 */
-    Pthread_create(&tid, NULL, thread, (void *)connfd); 
+    doit(connfd);
+    Close(connfd);
   }
   return 0;
-}
-
-void *thread(int connfd) { 
-  Pthread_detach(pthread_self()); /* pthread_create()로 쓰레드 생성시, thread 종료하더라도 자원 반환되지 않는다.
-                                     detach하면 thread 종료시 다른 쓰레드랑 join할 필요 없이 자동으로 자원이 반환된다
-                                     join을 호출하는 쓰레드에서 인자로 넣어준 쓰레드가 끝날 때까지 기다리다가 해당 쓰레드 종료되면 자원을 받아온다*/ 
-  doit(connfd);
-  Close(connfd); 
 }
 
 void doit(int connfd)
@@ -74,12 +56,11 @@ void doit(int connfd)
   /*store the request line arguments*/
   char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char hostname[MAXLINE], path[MAXLINE], query[MAXLINE];
-  int port;
-  
   char buf[MAXLINE], req_msg[MAXLINE];
 
   rio_t client_rio, server_rio; 
   int end_serverfd; /*the end server file descriptor*/
+  int port;
 
   Rio_readinitb(&client_rio, connfd);
   Rio_readlineb(&client_rio, buf, MAXLINE);
